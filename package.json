@@ -5,9 +5,9 @@
   "main": "app.js",
   "scripts": {
     "dev": "nodemon app.js",
-    "start": "node app.js"
+    "start": "pm2 start app.js"
   },
-  "author": "MonixLITE",
+  "author": "Petr Mitin @petr09mitin tg",
   "license": "ISC",
   "dependencies": {
     "@vk-io/hear": "^1.1.0",
