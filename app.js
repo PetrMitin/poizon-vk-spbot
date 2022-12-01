@@ -7,6 +7,8 @@ const base = require("./base.json");
 const play = require("./playlist.json");
 const acc = require("./accounts.json");
 const fs = require("fs");
+const { parseUserApiToken, spamToGroup, spamToGroups } = require('./utils');
+//567995123
 
 const vk = new VK({
 	token: process.env.VK_API_TOKEN
@@ -147,7 +149,9 @@ sceneManager.addScenes([
                         end: 0
                     });
                     save();
-                    return await context.send(`• Запущено! Мы уведомим вас когда закончим!`);
+                    //const accListString = base[base.length-1].acc.map(accId => `https://vk.com/id${accId}`).join(' \n')
+                    //const groupListString = base[base.length-1].play.map(groupId => `https://vk.com/id${groupId}`).join(' \n')
+                    return await context.send(`• Запущено! Мы уведомим вас когда закончим!\n`);
                 } else {
                     await context.send(`• Отменяем.`);
                     return await context.scene.leave();
@@ -161,57 +165,33 @@ sceneManager.addScenes([
 
 var owner_ids = parseInt(process.env.OWNERS_ID);
 
-setInterval(async() => {
-    if (base.length >= 1) {
-        base.forEach(async function(data){
-            if (data.rep > 0) {
-                if (data.doGroup < data.toGroup) {
-                    if (data.doAcc < data.toAcc) {
-                        data.doAcc
-                        var user = new VK({
-                            token: `${acc[data.indexAcc].accounts[data.doAcc]}`
-                        });
-                        user.updates.start()
-                        .then(async(a) => {
-                            return user.api.wall.post({
-                                owner_id: '-'+play[data.indexPlay].groups[data.doGroup],
-                                message: data.text,
-                                from_group: 0
-                            }).then(async(a1) => {
-                                data.doGroup = data.doGroup+1;
-                                console.log(a1)
-                            }).catch(async(b1) => {
-                                data.doGroup = data.doGroup+1;
-                                console.log(b1)
-                            });
-                        }).catch(async(b) => {
-                            data.doGroup = data.doGroup+1;
-                            console.log(`Аккаунт №${data.doAcc} не рабочий!`)
-                        });
-                    } else {
-                        data.rep = data.rep-1;
-                        data.doGroup = 0;
-                        data.doAcc = 0;
-                    };
-                } else {
-                    data.doGroup = 0;
-                    data.doAcc = data.doAcc+1;
-                }
-            } else {
-                if (data.end == 0) {
+async function poll() {
+    try {
+            base.forEach(async function(data){
+                if (data.end === 1) return
+                console.log(`Начат заказ ${data.id}`)
+                const groupsArr = play[data.indexPlay].groups;
+                const tokensArr = acc[data.indexAcc].accounts;
+                const text = data.text
+                const reps = data.rep * groupsArr.length
+                await spamToGroups(groupsArr, tokensArr, text, reps, async () => {
                     await vk.api.messages.send({
                         user_id: owner_ids,
                         random_id: 0,
-                        message: `• Заказ №${data.id} выполнен.\n\n• Использовано аккаунтов: ${data.toAcc}\n• Использовано групп: ${data.toGroup}\n\n`
+                        message: `• Заказ №${data.id} выполнен.`
                     });
                     data.end = 1;
-                };
-            }
-        });
-        save();
+                    save();
+                })
+            });
+    } catch (e) {
+        console.log(e)
     };
-}, 60000);
+}
 
+poll()
+
+//"vk1.a.kZ-2BePHkinZqrau7NaIe2dRWAVerYe0BK0PQxsfKGXSHnsCf6_748gYdr7smWxjRIXLloHYjG8gzAsqkb-d-0e4ufkVwrFiofNwHO4kxBqc6Z1cJVVKzQx7uKSYpfJ4kRbCfYAphOd498zqYVBIBcYfwE6AM9loTgE4jjlFgzPiRskcmlM-Jt_HhdJBoHHYzidbi5CsKLJIPbuvDYblYg",
 
 bot.hear(/!заказать/i, async (context) => {
     if (context.senderId !== owner_ids) return;
@@ -376,7 +356,7 @@ bot.hear(/^(?:в акклист) ?([0-9]+)? ?([^]+)?$/i, async (context) => {
             for (i=0;i<links.length;i++) {
                 var getToken = ``;
                 try {
-                    getToken =  `${links[i]}`.split("access_token=")[1].split("&expires_in=")[0];
+                    getToken =  parseUserApiToken(links[i])
                 } catch {
                     getToken =  `${links[i]}`;
                 };
@@ -485,7 +465,7 @@ bot.hear(/!старт/i, async (context, next) => {
                     label: '!заказать'
                 }),
 		        Keyboard.textButton({
-		            label: `!плейлисты`
+		            label: `!групплисты`
 		        }),
 	        ], 
 	        [
