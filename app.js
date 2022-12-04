@@ -1,11 +1,12 @@
 const { VK, Keyboard, MessageContext } = require(`vk-io`);
+const path = require('path')
 const { SessionManager } = require(`@vk-io/session`);
 const { HearManager } = require(`@vk-io/hear`);
 const { SceneManager, StepScene } = require(`@vk-io/scenes`);
 require('dotenv').config()
-const base = require("./base.json") || [];
-const play = require("./playlist.json");
-const acc = require("./accounts.json");
+const base = require(path.resolve(__dirname, 'base.json')) || [];
+const play = require(path.resolve(__dirname, 'playlist.json'));
+const acc = require(path.resolve(__dirname, 'accounts.json'));
 const fs = require("fs");
 const { parseUserApiToken, spamToGroup, spamToGroups, verifyAdmin } = require('./utils');
 //567995123
@@ -45,13 +46,13 @@ function find(id){
 	} 
 };
 function save() { 
-	fs.writeFileSync("./base.json", JSON.stringify(base, null, "\t"));
+	fs.writeFileSync(path.resolve(__dirname, 'base.json'), JSON.stringify(base, null, "\t"));
 };
 function saveP() { 
-	fs.writeFileSync("./playlist.json", JSON.stringify(play, null, "\t"));
+	fs.writeFileSync(path.resolve(__dirname, 'playlist.json'), JSON.stringify(play, null, "\t"));
 };
 function saveA() { 
-	fs.writeFileSync("./accounts.json", JSON.stringify(acc, null, "\t"));
+	fs.writeFileSync(path.resolve(__dirname, 'accounts.json'), JSON.stringify(acc, null, "\t"));
 };
 
 sceneManager.addScenes([
