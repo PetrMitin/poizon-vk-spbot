@@ -35,11 +35,10 @@ const spamToGroups = async (groupsArr, tokensArr, text, reps, cb) => {
     }, 60000)
 }
 
-const spamToGroupsForReps = async (groupsArr, tokensArr, text, reps) => {
-    
-}
+const verifyAdmin  = (userId, adminIdArr) => adminIdArr.includes(userId)
 
 module.exports = {
     parseUserApiToken,
-    spamToGroups
+    spamToGroups,
+    verifyAdmin
 }

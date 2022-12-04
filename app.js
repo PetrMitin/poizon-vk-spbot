@@ -3,11 +3,11 @@ const { SessionManager } = require(`@vk-io/session`);
 const { HearManager } = require(`@vk-io/hear`);
 const { SceneManager, StepScene } = require(`@vk-io/scenes`);
 require('dotenv').config()
-const base = require("./base.json");
+const base = require("./base.json") || [];
 const play = require("./playlist.json");
 const acc = require("./accounts.json");
 const fs = require("fs");
-const { parseUserApiToken, spamToGroup, spamToGroups } = require('./utils');
+const { parseUserApiToken, spamToGroup, spamToGroups, verifyAdmin } = require('./utils');
 //567995123
 
 const vk = new VK({
@@ -146,7 +146,8 @@ sceneManager.addScenes([
                         toGroup: play[indexP].groups.length,
                         doAcc: 0,
                         toAcc: acc[indexA].accounts.length,
-                        end: 0
+                        end: 0,
+                        isRunningFirstTime: true
                     });
                     save();
                     //const accListString = base[base.length-1].acc.map(accId => `https://vk.com/id${accId}`).join(' \n')
@@ -164,11 +165,18 @@ sceneManager.addScenes([
 ]);
 
 var owner_ids = parseInt(process.env.OWNERS_ID);
+const adminIdArr = [owner_ids, 324721103]
 
 async function poll() {
     try {
-            base.forEach(async function(data){
-                if (data.end === 1) return
+            base.forEach(async function(data, index){
+                if (data.end === 1 || !data.isRunningFirstTime) {
+                    data.isRunningFirstTime = false
+                    //this.splice(index, 1)
+                    return save()
+                }
+                data.isRunningFirstTime = false
+                save()
                 console.log(`Начат заказ ${data.id}`)
                 const groupsArr = play[data.indexPlay].groups;
                 const tokensArr = acc[data.indexAcc].accounts;
@@ -183,22 +191,30 @@ async function poll() {
                     data.end = 1;
                     save();
                 })
-            });
+            }, base);
     } catch (e) {
         console.log(e)
     };
 }
 
-poll()
+let totalTime = 0
+base.forEach((el) => {
+    totalTime += el.toGroup * 60000
+})
+
+setInterval(() => {
+    save()
+    poll()
+}, 60000)
 
 //"vk1.a.kZ-2BePHkinZqrau7NaIe2dRWAVerYe0BK0PQxsfKGXSHnsCf6_748gYdr7smWxjRIXLloHYjG8gzAsqkb-d-0e4ufkVwrFiofNwHO4kxBqc6Z1cJVVKzQx7uKSYpfJ4kRbCfYAphOd498zqYVBIBcYfwE6AM9loTgE4jjlFgzPiRskcmlM-Jt_HhdJBoHHYzidbi5CsKLJIPbuvDYblYg",
 
 bot.hear(/!заказать/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
 	await context.scene.enter(`scene1`);
 });
 bot.hear(/!групплисты/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
 	await context.send(`📖 Привет!\n\nЧтобы создать плейлист, напишите «создать групплист «Номер» »\n\n
     Чтобы добавить группы, напишите «в групплист «номер» «ссылка» » \n\n
     Чтобы убрать группы из плейлиста, напишите «из групплиста «номер» «ссылка» »\n\n
@@ -207,7 +223,7 @@ bot.hear(/!групплисты/i, async (context) => {
 
 
 bot.hear(/^(?:создать групплист) ?([0-9]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     if (!context.$match[1]) return await context.send(`ID не указан.`);
     for (i=0;i<play.length;i++) {
         if (play[i].id == context.$match[1]) {
@@ -222,7 +238,7 @@ bot.hear(/^(?:создать групплист) ?([0-9]+)?$/i, async (context) 
     saveP()
 });
 bot.hear(/^(?:удалить групплист) ?([0-9]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     if (!context.$match[1]) return await context.send(`ID не указан.`);
     for (i=0;i<play.length;i++) {
         if (play[i].id == context.$match[1]) {
@@ -237,7 +253,7 @@ bot.hear(/^(?:удалить групплист) ?([0-9]+)?$/i, async (context) 
     return await context.send(`ID не занят.`);
 });
 bot.hear(/^(?:создать акклист) ?([0-9]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     if (!context.$match[1]) return await context.send(`ID не указан.`);
     for (i=0;i<acc.length;i++) {
         if (acc[i].id == context.$match[1]) {
@@ -252,7 +268,7 @@ bot.hear(/^(?:создать акклист) ?([0-9]+)?$/i, async (context) => {
     saveA()
 });
 bot.hear(/^(?:удалить акклист) ?([0-9]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     if (!context.$match[1]) return await context.send(`ID не указан.`);
     for (i=0;i<acc.length;i++) {
         if (acc[i].id == context.$match[1]) {
@@ -268,7 +284,7 @@ bot.hear(/^(?:удалить акклист) ?([0-9]+)?$/i, async (context) => {
 });
 
 bot.hear(/^(?:удалить заказ) ?([0-9]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     if (!context.$match[1]) return await context.send(`ID не указан.`);
     var ends = 1;
     base.forEach(async function(data){
@@ -286,7 +302,7 @@ bot.hear(/^(?:удалить заказ) ?([0-9]+)?$/i, async (context) => {
 });
 
 bot.hear(/^(?:в групплист) ?([0-9]+)? ?([\s\S]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     for (i=0;i<play.length;i++) {
         if (play[i].id == context.$match[1]) {
             var links = context.$match[2].split(" ");
@@ -317,7 +333,7 @@ bot.hear(/^(?:в групплист) ?([0-9]+)? ?([\s\S]+)?$/i, async (context) 
     return context.send(`ID не найден.`);
 });
 bot.hear(/^(?:из групплиста) ?([0-9]+)? ?([\s\S]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     for (i=0;i<play.length;i++) {
         if (play[i].id == context.$match[1]) {
             var links = context.$match[2].split(" ");
@@ -348,7 +364,7 @@ bot.hear(/^(?:из групплиста) ?([0-9]+)? ?([\s\S]+)?$/i, async (conte
     return await context.send(`ID не найден.`);
 });
 bot.hear(/^(?:в акклист) ?([0-9]+)? ?([^]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     for (i=0;i<acc.length;i++) {
         if (acc[i].id == context.$match[1]) {
             var links = context.$match[2].split(" ");
@@ -376,7 +392,7 @@ bot.hear(/^(?:в акклист) ?([0-9]+)? ?([^]+)?$/i, async (context) => {
     return await context.send(`ID не найден.`);
 });
 bot.hear(/^(?:из акклиста) ?([0-9]+)? ?([^]+)?$/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     for (i=0;i<acc.length;i++) {
         if (acc[i].id == context.$match[1]) {
             var links = context.$match[2].split(" ");
@@ -408,7 +424,7 @@ bot.hear(/^(?:из акклиста) ?([0-9]+)? ?([^]+)?$/i, async (context) => 
 });
 
 bot.hear(/!аккаунты/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
 	await context.send(`• Делаю проверку аккаунтов...`);
     var cheackeng = [];
     var a = 0,
@@ -443,7 +459,7 @@ bot.hear(/!аккаунты/i, async (context) => {
 });
 
 bot.hear(/!выполняются/i, async (context) => {
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     var list = [];
     base.forEach(function(data){
         if (data.end == 0) {
@@ -456,7 +472,7 @@ bot.hear(/!выполняются/i, async (context) => {
 
 bot.hear(/!старт/i, async (context, next) => {
     console.log(context.senderId, owner_ids)
-    if (context.senderId !== owner_ids) return;
+    if (!verifyAdmin(context.senderId, adminIdArr)) return;
     contextPref = context;
 	await context.send(`📖 Привет! Вот все Кнопочки:`, {
 	    keyboard: Keyboard.keyboard([
